@@ -1,0 +1,3 @@
+curl -X POST -d 'grant_type=password&username=<usern>&password=<passwd>' --user '<appid>:<appkey>' -A 'rlcprint' https://www.reddit.com/api/v1/access_token
+
+curl -H "Authorization: bearer <token>" -A 'rlcprint' https://oauth.reddit.com/api/v1/me | jq .
