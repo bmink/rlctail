@@ -259,15 +259,30 @@ end_label:
 }
 #endif
 
+
+#define MODE_NONE	0
+#define MODE_LIST	1
+#define MODE_TAIL	2
+
 int
 main(int argc, char **argv)
 {
 	char	*execn;
 	int	err;
 	int	ret;
+	int	mode;
+	int	c;
+	char	*usern;
+	char	*passw;
+	char	*subredditn;
+	char	*postid;
+	int	delaysec;
 
 
 	err = 0;
+	mode = MODE_NONE;
+	delaysec = 0;
+
 	execn = basename(argv[0]);
 	if(xstrempty(execn)) {
 		fprintf(stderr, "Can't get executable name\n");
@@ -283,6 +298,106 @@ main(int argc, char **argv)
 		err = -1;
                 goto end_label;
         }
+
+	if(argc < 2) {
+		usage(execn);
+		err = -1;
+		goto end_label;
+	}
+
+
+	while ((c = getopt (argc, argv, "hu:p:d:l:t:")) != -1) {
+		switch (c) {
+		case 'h':
+			usage(execn);
+			goto end_label;
+		case 'u':
+			usern = optarg;
+			if(xstrempty(usern)) {
+				fprintf(stderr,
+				    "Invalid username.\n");
+				err = -1;
+				goto end_label;
+			}
+			break;
+
+		case 'p':
+			passw = optarg;
+			if(xstrempty(passw)) {
+				fprintf(stderr,
+				    "Invalid password.\n");
+				err = -1;
+				goto end_label;
+			}
+			break;
+
+		case 'l':
+			if(mode != MODE_NONE) {
+				fprintf(stderr,
+				    "More than one mode specified.\n");
+				err = -1;
+				goto end_label;
+			}
+			mode = MODE_LIST;
+			subredditn = optarg;
+			break;
+
+		case 't':
+			if(mode != MODE_NONE) {
+				fprintf(stderr,
+				    "More than one mode specified.\n");
+				err = -1;
+				goto end_label;
+			}
+			mode = MODE_TAIL;
+			postid = optarg;
+			break;
+
+		case 'd':
+			if(xstrempty(optarg)) {
+				fprintf(stderr,
+				    "Invalid delay specified.\n");
+				err = -1;
+				goto end_label;
+			}
+			delaysec = atoi(optarg);
+
+			if(delaysec == 0) {
+				fprintf(stderr,
+				    "Delay has to be nonzero"
+				    " (omit option for no delay).\n");
+				err = -1;
+				goto end_label;
+			}
+
+			break;
+
+
+		case '?':
+			fprintf (stderr, "Unknown option `-%c'\n", optopt);
+			err = -1;
+			goto end_label;
+		default:
+			fprintf (stderr, "Error while parsing options");
+			err = -1;
+			goto end_label;
+		}
+	}
+
+	if(argc > optind) {
+		fprintf (stderr, "Superfluous tailing arguments.\n");
+		err = -1;
+		goto end_label;
+	}
+
+	if(mode != MODE_TAIL && delaysec > 0) {
+		fprintf (stderr, "Delay can only be specified"
+		    " in tail mode.\n");
+		err = -1;
+		goto end_label;
+	}
+
+
 
 
 end_label:
@@ -301,6 +416,11 @@ void
 usage(const char *execn)
 {
 	printf("usage:\n");
- 	printf("  List current match threads: %s -l\n", execn);
- 	printf("  Print match thread:  %s [-d sec] <thread>", execn);
+	printf("\n");
+ 	printf("  List current match threads:\n");
+	printf("      %s -u <user> -p <pass> -l <subreddit (sans '/r/' prefix)>\n", execn);
+	printf("\n");
+ 	printf("  Tail live comments on post:\n");
+	printf("      %s -u <user> -p <pass> [-d delaysec] -t <postid>\n", execn);
+	printf("\n");
 }
