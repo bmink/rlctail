@@ -1,4 +1,4 @@
-P = rlcprint
+P = rlctail
 OBJS = main.o
 CFLAGS = -g -Wall -Wstrict-prototypes
 LDLIBS = -lb

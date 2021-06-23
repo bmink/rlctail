@@ -1,4 +1,4 @@
 *.o
-rlcprint
+rlctail
 *.swp
 
