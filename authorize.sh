@@ -39,7 +39,7 @@ fi
 
 # Start user authentication
 # Can't get Safari to work with nc reliably!
-echo "Plase open this URL in Chrome: $AUTH_URL"
+echo "Please open this URL in Chrome: $AUTH_URL"
 
 
 # Serve up a response once the redirect happens.
