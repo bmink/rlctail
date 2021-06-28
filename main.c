@@ -5,6 +5,7 @@
 #include <time.h>
 #include "bstr.h"
 #include "blog.h"
+#include "bcurl.h"
 
 void usage(const char *);
 
@@ -299,6 +300,16 @@ main(int argc, char **argv)
                 goto end_label;
         }
 
+
+	ret = bcurl_init();
+        if(ret != 0) {
+                fprintf(stderr, "Could not initialize curl: %s\n",
+                    strerror(ret));
+		err = -1;
+                goto end_label;
+        }
+	
+
 	if(argc < 2) {
 		usage(execn);
 		err = -1;
@@ -402,6 +413,8 @@ main(int argc, char **argv)
 
 end_label:
 
+	bcurl_uninit();
+
 	blog_uninit();
 
 	return err;
@@ -422,5 +435,8 @@ usage(const char *execn)
 	printf("\n");
  	printf("  Tail live comments on post:\n");
 	printf("      %s -u <user> -p <pass> [-d delaysec] -t <postid>\n", execn);
+	printf("\n");
+ 	printf("  Replay comments on post:\n");
+	printf("      %s -u <user> -p <pass> -t <time> -r <postid>\n", execn);
 	printf("\n");
 }

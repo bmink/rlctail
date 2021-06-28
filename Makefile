@@ -1,7 +1,7 @@
 P = rlctail
 OBJS = main.o
 CFLAGS = -g -Wall -Wstrict-prototypes
-LDLIBS = -lb
+LDLIBS = -lb -lcurl
 
 $(P): $(OBJS)
 	$(CC) -o $(P) $(LDFLAGS) $(OBJS) $(LDLIBS)
