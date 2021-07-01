@@ -221,21 +221,19 @@ loadcreds(const char *credsfile)
 	}
 
 	if(!(st.st_mode & S_IFREG)) {
-		blogf("%s is not a regular file", credsfile);
+		blogf("Creds file is not a regular file");
 		err = EINVAL;
 		goto end_label;
 	}
 
 	if((st.st_mode & (S_IRUSR | S_IWUSR)) != (S_IRUSR | S_IWUSR)) {
-		blogf("Permissions for %s not correct, must be 600",
-		    credsfile);
+		blogf("Permissions for creds file not correct, must be 600");
 		err = EINVAL;
 		goto end_label;
 	}
 
 	if(st.st_mode & (S_IXUSR | S_IRWXG | S_IRWXO)) {
-		blogf("Permissions for %s not correct, must be 600",
-		    credsfile);
+		blogf("Permissions for creds file not correct, must be 600");
 		err = EINVAL;
 		goto end_label;
 	}
