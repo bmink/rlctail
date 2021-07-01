@@ -9,6 +9,7 @@
 
 void usage(const char *);
 
+
 #if 0
 int
 main(int argc, char **argv)
@@ -273,8 +274,6 @@ main(int argc, char **argv)
 	int	ret;
 	int	mode;
 	int	c;
-	char	*usern;
-	char	*passw;
 	char	*subredditn;
 	char	*postid;
 	int	delaysec;
@@ -317,30 +316,11 @@ main(int argc, char **argv)
 	}
 
 
-	while ((c = getopt (argc, argv, "hu:p:d:l:t:")) != -1) {
+	while ((c = getopt (argc, argv, "hd:l:t:")) != -1) {
 		switch (c) {
 		case 'h':
 			usage(execn);
 			goto end_label;
-		case 'u':
-			usern = optarg;
-			if(xstrempty(usern)) {
-				fprintf(stderr,
-				    "Invalid username.\n");
-				err = -1;
-				goto end_label;
-			}
-			break;
-
-		case 'p':
-			passw = optarg;
-			if(xstrempty(passw)) {
-				fprintf(stderr,
-				    "Invalid password.\n");
-				err = -1;
-				goto end_label;
-			}
-			break;
 
 		case 'l':
 			if(mode != MODE_NONE) {
@@ -431,12 +411,12 @@ usage(const char *execn)
 	printf("usage:\n");
 	printf("\n");
  	printf("  List current match threads:\n");
-	printf("      %s -u <user> -p <pass> -l <subreddit (sans '/r/' prefix)>\n", execn);
+	printf("      %s -l <subreddit (sans '/r/' prefix)>\n", execn);
 	printf("\n");
  	printf("  Tail live comments on post:\n");
-	printf("      %s -u <user> -p <pass> [-d delaysec] -t <postid>\n", execn);
+	printf("      %s [-d delaysec] -t <postid>\n", execn);
 	printf("\n");
  	printf("  Replay comments on post:\n");
-	printf("      %s -u <user> -p <pass> -t <time> -r <postid>\n", execn);
+	printf("      %s -t <time> -r <postid>\n", execn);
 	printf("\n");
 }

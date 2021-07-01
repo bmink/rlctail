@@ -1,4 +1,4 @@
 *.o
 rlctail
 *.swp
-
+.rlctailcreds.json
