@@ -3,268 +3,25 @@
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "bstr.h"
 #include "blog.h"
 #include "bcurl.h"
 
-void usage(const char *);
 
-
-#if 0
-int
-main(int argc, char **argv)
-{
-	char	*execn;
-	bstr_t	*val;
-	int	err;
-	int	ret;
-	bstr_t	*filen;
-	bstr_t	*cmd;
-	bstr_t	*newval;
-	barr_t	*elems;
-	bstr_t	*elem;
-	char	*listn;
-	bstr_t	*key;
-	bstr_t	*tmpkey;
-	int	c;
-	int	docreate;
-	barr_t	*newelems;
-
-	val = NULL;
-	err = 0;
-	filen = NULL;
-	key = NULL;
-	tmpkey = NULL;
-	cmd = NULL;
-	newval = NULL;
-	elems = NULL;
-	newelems = NULL;
-
-	execn = basename(argv[0]);
-	if(xstrempty(execn)) {
-		fprintf(stderr, "Can't get executable name\n");
-		err = -1;
-		goto end_label;
-	}
-
-	docreate = 0;
-	opterr = 0;
-
-	while ((c = getopt (argc, argv, "c")) != -1) {
-		switch (c) {
-		case 'c':
-			++docreate;
-			break;
-		case '?':
-			fprintf (stderr, "Unknown option `-%c'\n", optopt);
-			err = -1;
-			goto end_label;
-		default:
-			fprintf (stderr, "Error while parsing options");
-			err = -1;
-			goto end_label;
-		}
-	}
-
-	if(argc != optind + 1 || xstrempty(argv[optind])) {
-		usage(execn);
-		err = -1;
-		goto end_label;
-	}
-
-	listn = argv[optind];
-	
-
-	ret = hiredis_init();
-	if(ret != 0) {
-		fprintf(stderr, "Could not connect to redis\n");
-		err = -1;
-		goto end_label;
-	}
-
-	key = binit();
-	if(key == NULL) {
-		fprintf(stderr, "Can't allocate key\n");
-		err = -1;
-		goto end_label;
-	}
-	bprintf(key, "%s%s", KEY_PREF, listn);
-
-	elems = barr_init(sizeof(bstr_t));
-	if(elems == NULL) {
-		fprintf(stderr, "Couldn't allocate elems\n");
-		err = -1;
-		goto end_label;
-	}
-
-	val = binit();
-	if(val == NULL) {
-		fprintf(stderr, "Can't allocate val\n");
-		err = -1;
-		goto end_label;
-	}
-
-	ret = hiredis_lrange(bget(key), 0, - 1, elems);
-	if(ret != 0) {
-		fprintf(stderr, "Couldn't lrange: %s\n", strerror(ret));
-		err = -1;
-		goto end_label;
-	}
-
-	if(barr_cnt(elems) == 0 && !docreate) {
-		fprintf(stderr, "Key doesn't exist\n");
-		err = -1;
-		goto end_label;
-	}
-
-	for(elem = (bstr_t *) barr_begin(elems);
-	    elem < (bstr_t *) barr_end(elems); ++elem) {
-		bprintf(val, "%s\n", bget(elem));
-	}
-
-	filen = binit();
-	if(filen == NULL) {
-		fprintf(stderr, "Can't allocate filen\n");
-		err = -1;
-		goto end_label;
-	}
-	bprintf(filen, "/tmp/%s_%d_%d", execn, getpid(), time(NULL));
-	
-	if(!bstrempty(val)) { /* OK to be empty if we are creating */
-		ret = btofile(bget(filen), val);
-		if(ret != 0) {
-			fprintf(stderr, "Couldn't write value to filen\n");
-			err = -1;
-			goto end_label;
-		}
-	}
-
-	cmd = binit();
-	if(cmd == NULL) {
-		fprintf(stderr, "Can't allocate cmd\n");
-		err = -1;
-		goto end_label;
-	}
-	bprintf(cmd, "%s %s", EDITOR, bget(filen));
-
-	ret = system(bget(cmd));
-	if(ret != 0) {
-		fprintf(stderr, "Couldn't execute system command: %d\n", ret);
-		err = -1;
-		goto end_label;
-	}
-
-	newval = binit();
-	if(newval == NULL) {
-		fprintf(stderr, "Can't allocate newval\n");
-		err = -1;
-		goto end_label;
-	}
-
-	ret = bfromfile(newval, bget(filen));
-	if(ret != 0 && !docreate) {
-		/* OK for file to not exist if we are creating. Just means
-		 * "unchanged". */
-		fprintf(stderr, "Couldn't load file\n");
-		err = -1;
-		goto end_label;
-	}
-
-	if(!bstrcmp(val, bget(newval))) {
-		if(docreate && bstrempty(newval))
-			printf("List not created.\n");
-		else
-			printf("List not changed.\n");
-		goto end_label;
-	}
-
-	ret = bstrsplit(newval, "\n", 0, &newelems);
-	if(ret != 0 || newelems == NULL) {
-		fprintf(stderr, "Couldn't split new value\n");
-		err = -1;
-		goto end_label;
-	}
-	if(barr_cnt(newelems) == 0) {
-		fprintf(stderr, "New list can't be empty, use -d to delete"
-		    " a list\n");
-		err = -1;
-		goto end_label;
-	}
-
-	tmpkey = binit();
-	if(tmpkey == NULL) {
-		fprintf(stderr, "Can't allocate tmpkey\n");
-		err = -1;
-		goto end_label;
-	}
-	bprintf(tmpkey, "%s_tmp_%s_%d_%d", KEY_PREF, execn, getpid(),
-	    time(NULL));
-
-	for(elem = (bstr_t *) barr_begin(newelems);
-	    elem < (bstr_t *) barr_end(newelems); ++elem) {
-		if(bstrempty(elem))
-			continue;
-		ret = hiredis_rpush(bget(tmpkey), bget(elem));
-		if(ret != 0) {
-			fprintf(stderr, "Could not rpush element.\n");
-			err = -1;
-			goto end_label;
-		}
-	}
-
-	ret = hiredis_rename(bget(tmpkey), bget(key));
-	if(ret != 0) {
-		fprintf(stderr, "Could not rename.\n");
-		err = -1;
-		goto end_label;
-	}
-
-	printf("List updated successfully.\n");
-
-
-end_label:
-	
-	buninit(&val);
-
-	if(!bstrempty(filen)) {
-		(void) unlink(bget(filen));
-	}
-	buninit(&filen);
-	buninit(&cmd);
-	buninit(&newval);
-	buninit(&key);
-
-	if(err != 0 && !bstrempty(tmpkey)) {
-		(void) hiredis_del(bget(tmpkey), NULL);
-	}
-	buninit(&tmpkey);
-
-	if(elems) {
-		for(elem = (bstr_t *) barr_begin(elems);
-		    elem < (bstr_t *) barr_end(elems); ++elem) {
-			buninit_(elem);
-		}
-		barr_uninit(&elems);
-	}
-	if(newelems) {
-		for(elem = (bstr_t *) barr_begin(newelems);
-		    elem < (bstr_t *) barr_end(newelems); ++elem) {
-			buninit_(elem);
-		}
-		barr_uninit(&newelems);
-	}
-
-	hiredis_uninit();
-
-	return err;
-
-}
-#endif
-
+#define DEFAULT_CREDSFILE	".rlctailcreds.json"
 
 #define MODE_NONE	0
 #define MODE_LIST	1
 #define MODE_TAIL	2
+
+const char *usern = NULL;
+const char *passw = NULL;
+
+void usage(const char *);
+int loadcreds(const char *);
+
 
 int
 main(int argc, char **argv)
@@ -277,11 +34,12 @@ main(int argc, char **argv)
 	char	*subredditn;
 	char	*postid;
 	int	delaysec;
-
-
+	char	*credsfile;
+	
 	err = 0;
 	mode = MODE_NONE;
 	delaysec = 0;
+	credsfile = DEFAULT_CREDSFILE;
 
 	execn = basename(argv[0]);
 	if(xstrempty(execn)) {
@@ -316,11 +74,15 @@ main(int argc, char **argv)
 	}
 
 
-	while ((c = getopt (argc, argv, "hd:l:t:")) != -1) {
+	while ((c = getopt (argc, argv, "hc:d:l:t:")) != -1) {
 		switch (c) {
 		case 'h':
 			usage(execn);
 			goto end_label;
+
+		case 'c':
+			credsfile = optarg;
+			break;
 
 		case 'l':
 			if(mode != MODE_NONE) {
@@ -388,6 +150,18 @@ main(int argc, char **argv)
 		goto end_label;
 	}
 
+	if(xstrempty(credsfile)) {
+		fprintf (stderr, "Invalid credentials file specified.\n");
+		err = -1;
+		goto end_label;
+	}
+
+	ret = loadcreds(credsfile);
+	if(ret != 0) {
+		fprintf (stderr, "Could not load credentials.\n");
+		err = -1;
+		goto end_label;
+	}
 
 
 
@@ -411,12 +185,64 @@ usage(const char *execn)
 	printf("usage:\n");
 	printf("\n");
  	printf("  List current match threads:\n");
-	printf("      %s -l <subreddit (sans '/r/' prefix)>\n", execn);
+	printf("      %s [-c <credsfile>] -l <subreddit (sans '/r/'"
+	    " prefix)>\n", execn);
 	printf("\n");
  	printf("  Tail live comments on post:\n");
-	printf("      %s [-d delaysec] -t <postid>\n", execn);
+	printf("      %s [-c <credsfile>] [-d delaysec]"
+	    " -t <postid>\n", execn);
 	printf("\n");
  	printf("  Replay comments on post:\n");
-	printf("      %s -t <time> -r <postid>\n", execn);
+	printf("      %s [-c <credsfile>] -t <time> -r <postid>\n", execn);
 	printf("\n");
+}
+
+
+int
+loadcreds(const char *credsfile)
+{
+	int		ret;
+	struct stat	st;
+	int		err;
+
+	err = 0;
+	memset(&st, 0, sizeof(struct stat));
+
+	if(xstrempty(credsfile)) {
+		err = EINVAL;
+		goto end_label;
+	}
+
+	ret = stat(credsfile, &st);
+	if(ret != 0) {
+		blogf("Could not stat file %s: %s", credsfile, strerror(ret));
+		err = ret;
+		goto end_label;
+	}
+
+	if(!(st.st_mode & S_IFREG)) {
+		blogf("%s is not a regular file", credsfile);
+		err = EINVAL;
+		goto end_label;
+	}
+
+	if((st.st_mode & (S_IRUSR | S_IWUSR)) != (S_IRUSR | S_IWUSR)) {
+		blogf("Permissions for %s not correct, must be 600",
+		    credsfile);
+		err = EINVAL;
+		goto end_label;
+	}
+
+	if(st.st_mode & (S_IXUSR | S_IRWXG | S_IRWXO)) {
+		blogf("Permissions for %s not correct, must be 600",
+		    credsfile);
+		err = EINVAL;
+		goto end_label;
+	}
+
+
+end_label:
+
+	return err;
+
 }
