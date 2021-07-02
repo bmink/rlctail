@@ -1,4 +1,6 @@
 *.o
 rlctail
 *.swp
-.rlctailcreds.json
+.rlctail_usercreds.json
+.rlctail_appcreds.json
+

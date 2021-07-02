@@ -8,19 +8,24 @@
 #include "bstr.h"
 #include "blog.h"
 #include "bcurl.h"
+#include "cJSON.h"
+#include "cJSON_helper.h"
 
 
-#define DEFAULT_CREDSFILE	".rlctailcreds.json"
+#define DEFAULT_USERCREDSFILE	".rlctail_usercreds.json"
+#define DEFAULT_APPCREDSFILE	".rlctail_appcreds.json"
 
 #define MODE_NONE	0
 #define MODE_LIST	1
 #define MODE_TAIL	2
 
-const char *usern = NULL;
-const char *passw = NULL;
+bstr_t *usern = NULL;
+bstr_t *passw = NULL;
+bstr_t *token = NULL;
+time_t token_expire = 0;
 
 void usage(const char *);
-int loadcreds(const char *);
+int loadusrcreds(const char *);
 
 
 int
@@ -34,12 +39,12 @@ main(int argc, char **argv)
 	char	*subredditn;
 	char	*postid;
 	int	delaysec;
-	char	*credsfile;
+	char	*usrcredsfile;
 	
 	err = 0;
 	mode = MODE_NONE;
 	delaysec = 0;
-	credsfile = DEFAULT_CREDSFILE;
+	usrcredsfile = DEFAULT_USERCREDSFILE;
 
 	execn = basename(argv[0]);
 	if(xstrempty(execn)) {
@@ -49,22 +54,22 @@ main(int argc, char **argv)
 	}
 
 
-        ret = blog_init(execn);
-        if(ret != 0) {
-                fprintf(stderr, "Could not initialize logging: %s\n",
-                    strerror(ret));
+	ret = blog_init(execn);
+	if(ret != 0) {
+		fprintf(stderr, "Could not initialize logging: %s\n",
+		    strerror(ret));
 		err = -1;
-                goto end_label;
-        }
+		goto end_label;
+	}
 
 
 	ret = bcurl_init();
-        if(ret != 0) {
-                fprintf(stderr, "Could not initialize curl: %s\n",
-                    strerror(ret));
+	if(ret != 0) {
+		fprintf(stderr, "Could not initialize curl: %s\n",
+		    strerror(ret));
 		err = -1;
-                goto end_label;
-        }
+		goto end_label;
+	}
 	
 
 	if(argc < 2) {
@@ -74,14 +79,14 @@ main(int argc, char **argv)
 	}
 
 
-	while ((c = getopt (argc, argv, "hc:d:l:t:")) != -1) {
+	while ((c = getopt (argc, argv, "hu:d:l:t:")) != -1) {
 		switch (c) {
 		case 'h':
 			usage(execn);
 			goto end_label;
 
-		case 'c':
-			credsfile = optarg;
+		case 'u':
+			usrcredsfile = optarg;
 			break;
 
 		case 'l':
@@ -150,18 +155,19 @@ main(int argc, char **argv)
 		goto end_label;
 	}
 
-	if(xstrempty(credsfile)) {
+	if(xstrempty(usrcredsfile)) {
 		fprintf (stderr, "Invalid credentials file specified.\n");
 		err = -1;
 		goto end_label;
 	}
 
-	ret = loadcreds(credsfile);
+	ret = loadusrcreds(usrcredsfile);
 	if(ret != 0) {
 		fprintf (stderr, "Could not load credentials.\n");
 		err = -1;
 		goto end_label;
 	}
+
 
 
 
@@ -171,8 +177,10 @@ end_label:
 
 	blog_uninit();
 
-	return err;
+	buninit(&usern);
+	buninit(&passw);
 
+	return err;
 	
 }
 
@@ -185,37 +193,44 @@ usage(const char *execn)
 	printf("usage:\n");
 	printf("\n");
  	printf("  List current match threads:\n");
-	printf("      %s [-c <credsfile>] -l <subreddit (sans '/r/'"
+	printf("      %s -l <subreddit (sans '/r/'"
 	    " prefix)>\n", execn);
 	printf("\n");
  	printf("  Tail live comments on post:\n");
-	printf("      %s [-c <credsfile>] [-d delaysec]"
-	    " -t <postid>\n", execn);
+	printf("      %s [-d delaysec] -t <postid>\n", execn);
 	printf("\n");
  	printf("  Replay comments on post:\n");
-	printf("      %s [-c <credsfile>] -t <time> -r <postid>\n", execn);
+	printf("      %s -t <time> -r <postid>\n", execn);
+	printf("\n");
+	printf("  For all invocations, alternate credential files can be specified via:\n");
+	printf("      [-u <usrcredsfile>]\n");
+	printf("      [-a <appcredsfile>]\n");
 	printf("\n");
 }
 
 
 int
-loadcreds(const char *credsfile)
+loadusrcreds(const char *credsfilen)
 {
 	int		ret;
 	struct stat	st;
 	int		err;
+	bstr_t		*filecont;
+	cJSON		*json;
 
 	err = 0;
+	filecont = NULL;
 	memset(&st, 0, sizeof(struct stat));
+	json = NULL;
 
-	if(xstrempty(credsfile)) {
+	if(xstrempty(credsfilen)) {
 		err = EINVAL;
 		goto end_label;
 	}
 
-	ret = stat(credsfile, &st);
+	ret = stat(credsfilen, &st);
 	if(ret != 0) {
-		blogf("Could not stat file %s: %s", credsfile, strerror(ret));
+		blogf("Could not stat creds file: %s", strerror(ret));
 		err = ret;
 		goto end_label;
 	}
@@ -238,8 +253,65 @@ loadcreds(const char *credsfile)
 		goto end_label;
 	}
 
+	
+
+	filecont = binit();
+	if(filecont == NULL) {
+		blogf("Couldn't initialize filecont");
+		err = ENOMEM;
+		goto end_label;
+	}
+
+	usern = binit();
+	if(usern == NULL) {
+		blogf("Couldn't initialize usern");
+		err = ENOMEM;
+		goto end_label;
+	}
+
+	passw = binit();
+	if(passw == NULL) {
+		blogf("Couldn't initialize passw");
+		err = ENOMEM;
+		goto end_label;
+	}
+
+	ret = bfromfile(filecont, credsfilen);
+	if(ret != 0) {
+		blogf("Couldn't load creds file");
+		err = ret;
+		goto end_label;
+	}
+
+	json = cJSON_Parse(bget(filecont));
+	if(json == NULL) {
+		blogf("Couldn't parse JSON");
+		err = ENOEXEC;
+		goto end_label;
+	}
+
+	ret = cjson_get_childstr(json, "username", usern);
+	if(ret != 0) {
+		blogf("JSON didn't contain username");
+		err = ENOENT;
+		goto end_label;
+	}
+	
+	ret = cjson_get_childstr(json, "password", passw);
+	if(ret != 0) {
+		blogf("JSON didn't contain passw");
+		err = ENOENT;
+		goto end_label;
+	}
+	
 
 end_label:
+
+	if(json != NULL) {
+		cJSON_Delete(json);
+	}
+
+	buninit(&filecont);
 
 	return err;
 
