@@ -21,11 +21,16 @@
 
 bstr_t *usern = NULL;
 bstr_t *passw = NULL;
+bstr_t *clientid = NULL;
+bstr_t *clientsecr = NULL;
+
 bstr_t *token = NULL;
 time_t token_expire = 0;
 
 void usage(const char *);
+
 int loadusrcreds(const char *);
+int loadappcreds(const char *);
 
 
 int
@@ -40,11 +45,13 @@ main(int argc, char **argv)
 	char	*postid;
 	int	delaysec;
 	char	*usrcredsfile;
+	char	*appcredsfile;
 	
 	err = 0;
 	mode = MODE_NONE;
 	delaysec = 0;
 	usrcredsfile = DEFAULT_USERCREDSFILE;
+	appcredsfile = DEFAULT_APPCREDSFILE;
 
 	execn = basename(argv[0]);
 	if(xstrempty(execn)) {
@@ -79,11 +86,15 @@ main(int argc, char **argv)
 	}
 
 
-	while ((c = getopt (argc, argv, "hu:d:l:t:")) != -1) {
+	while ((c = getopt (argc, argv, "ha:u:d:l:t:")) != -1) {
 		switch (c) {
 		case 'h':
 			usage(execn);
 			goto end_label;
+
+		case 'a':
+			appcredsfile = optarg;
+			break;
 
 		case 'u':
 			usrcredsfile = optarg;
@@ -155,15 +166,28 @@ main(int argc, char **argv)
 		goto end_label;
 	}
 
+	if(xstrempty(appcredsfile)) {
+		fprintf (stderr, "Invalid app credentials file specified.\n");
+		err = -1;
+		goto end_label;
+	}
+
+	ret = loadappcreds(appcredsfile);
+	if(ret != 0) {
+		fprintf (stderr, "Could not load app credentials.\n");
+		err = -1;
+		goto end_label;
+	}
+
 	if(xstrempty(usrcredsfile)) {
-		fprintf (stderr, "Invalid credentials file specified.\n");
+		fprintf (stderr, "Invalid user credentials file specified.\n");
 		err = -1;
 		goto end_label;
 	}
 
 	ret = loadusrcreds(usrcredsfile);
 	if(ret != 0) {
-		fprintf (stderr, "Could not load credentials.\n");
+		fprintf (stderr, "Could not load user credentials.\n");
 		err = -1;
 		goto end_label;
 	}
@@ -206,6 +230,113 @@ usage(const char *execn)
 	printf("      [-u <usrcredsfile>]\n");
 	printf("      [-a <appcredsfile>]\n");
 	printf("\n");
+}
+
+
+int
+loadappcreds(const char *credsfilen)
+{
+	int		ret;
+	struct stat	st;
+	int		err;
+	bstr_t		*filecont;
+	cJSON		*json;
+
+	err = 0;
+	filecont = NULL;
+	memset(&st, 0, sizeof(struct stat));
+	json = NULL;
+
+	if(xstrempty(credsfilen)) {
+		err = EINVAL;
+		goto end_label;
+	}
+
+	ret = stat(credsfilen, &st);
+	if(ret != 0) {
+		blogf("Could not stat creds file: %s", strerror(ret));
+		err = ret;
+		goto end_label;
+	}
+
+	if(!(st.st_mode & S_IFREG)) {
+		blogf("Creds file is not a regular file");
+		err = EINVAL;
+		goto end_label;
+	}
+
+	if((st.st_mode & (S_IRUSR | S_IWUSR)) != (S_IRUSR | S_IWUSR)) {
+		blogf("Permissions for creds file not correct, must be 600");
+		err = EINVAL;
+		goto end_label;
+	}
+
+	if(st.st_mode & (S_IXUSR | S_IRWXG | S_IRWXO)) {
+		blogf("Permissions for creds file not correct, must be 600");
+		err = EINVAL;
+		goto end_label;
+	}
+
+	filecont = binit();
+	if(filecont == NULL) {
+		blogf("Couldn't initialize filecont");
+		err = ENOMEM;
+		goto end_label;
+	}
+
+	clientid = binit();
+	if(clientid == NULL) {
+		blogf("Couldn't initialize clientid");
+		err = ENOMEM;
+		goto end_label;
+	}
+
+	clientsecr = binit();
+	if(clientsecr == NULL) {
+		blogf("Couldn't initialize clientsecr");
+		err = ENOMEM;
+		goto end_label;
+	}
+
+	ret = bfromfile(filecont, credsfilen);
+	if(ret != 0) {
+		blogf("Couldn't load creds file");
+		err = ret;
+		goto end_label;
+	}
+
+	json = cJSON_Parse(bget(filecont));
+	if(json == NULL) {
+		blogf("Couldn't parse JSON");
+		err = ENOEXEC;
+		goto end_label;
+	}
+
+	ret = cjson_get_childstr(json, "clientid", clientid);
+	if(ret != 0) {
+		blogf("JSON didn't contain clientid");
+		err = ENOENT;
+		goto end_label;
+	}
+	
+	ret = cjson_get_childstr(json, "clientsecret", clientsecr);
+	if(ret != 0) {
+		blogf("JSON didn't contain clientsecret");
+		err = ENOENT;
+		goto end_label;
+	}
+	
+
+end_label:
+
+	if(json != NULL) {
+		cJSON_Delete(json);
+	}
+
+	buninit(&filecont);
+
+	return err;
+
 }
 
 
@@ -254,7 +385,6 @@ loadusrcreds(const char *credsfilen)
 	}
 
 	
-
 	filecont = binit();
 	if(filecont == NULL) {
 		blogf("Couldn't initialize filecont");
