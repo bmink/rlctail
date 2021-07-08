@@ -192,6 +192,7 @@ main(int argc, char **argv)
 		goto end_label;
 	}
 
+// use bstrcat_urlenc_field to build post data
 
 
 
