@@ -31,6 +31,7 @@ void usage(const char *);
 
 int loadusrcreds(const char *);
 int loadappcreds(const char *);
+int checktoken(void);
 
 
 int
@@ -192,7 +193,6 @@ main(int argc, char **argv)
 		goto end_label;
 	}
 
-// use bstrcat_urlenc_field to build post data
 
 
 
@@ -445,5 +445,28 @@ end_label:
 	buninit(&filecont);
 
 	return err;
-
 }
+
+
+#define TOKEN_EXPIRE_MARGIN	60
+
+int
+checktoken(void)
+{
+	int	err;
+
+	err = 0;
+
+	if(time(NULL) + TOKEN_EXPIRE_MARGIN < token_expire)
+		goto end_label;
+
+
+	/* Token about to expire, get a new one. */
+
+
+end_label:
+
+
+	return err;
+}
+
