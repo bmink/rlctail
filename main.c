@@ -191,9 +191,14 @@ main(int argc, char **argv)
 		fprintf (stderr, "Could not load user credentials.\n");
 		err = -1;
 		goto end_label;
-	}
+	} 
 
-
+	ret = checktoken();
+	if(ret != 0) {
+		fprintf (stderr, "Could not authenticate with Reddit.\n");
+		err = -1;
+		goto end_label;
+	} 
 
 
 end_label:
@@ -434,6 +439,9 @@ loadusrcreds(const char *credsfilen)
 		err = ENOENT;
 		goto end_label;
 	}
+
+
+	
 	
 
 end_label:
@@ -448,7 +456,7 @@ end_label:
 }
 
 
-#define TOKEN_EXPIRE_MARGIN	60
+#define TOKEN_EXPIRE_MARGIN	86400
 
 int
 checktoken(void)
@@ -457,7 +465,9 @@ checktoken(void)
 
 	err = 0;
 
-	if(time(NULL) + TOKEN_EXPIRE_MARGIN < token_expire)
+	/* token_expire will be 0 on startup */
+	if((token_expire != 0) &&
+	    (time(NULL) + TOKEN_EXPIRE_MARGIN < token_expire))
 		goto end_label;
 
 
