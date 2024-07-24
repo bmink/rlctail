@@ -456,14 +456,16 @@ end_label:
 }
 
 
-#define TOKEN_EXPIRE_MARGIN	86400
+#define TOKEN_EXPIRE_MARGIN	600	/* Refresh 10 minutes before expiry */
 
 int
 checktoken(void)
 {
 	int	err;
+	bstr_t	*postdata;
 
 	err = 0;
+	postdata = NULL;
 
 	/* token_expire will be 0 on startup */
 	if((token_expire != 0) &&
@@ -474,9 +476,10 @@ checktoken(void)
 	/* Token about to expire, get a new one. */
 
 
+
 end_label:
 
-
+	buninit(&postdata);
 	return err;
 }
 
