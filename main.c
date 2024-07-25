@@ -14,6 +14,7 @@
 
 #define DEFAULT_USERCREDSFILE	".rlctail_usercreds.json"
 #define DEFAULT_APPCREDSFILE	".rlctail_appcreds.json"
+#define HTTP_USERAGENT		"macos:rlctail (by /u/brewbake)"
 
 #define MODE_NONE	0
 #define MODE_LIST	1
@@ -53,6 +54,8 @@ main(int argc, char **argv)
 	delaysec = 0;
 	usrcredsfile = DEFAULT_USERCREDSFILE;
 	appcredsfile = DEFAULT_APPCREDSFILE;
+	subredditn = NULL;
+	postid = NULL;
 
 	execn = basename(argv[0]);
 	if(xstrempty(execn)) {
@@ -78,7 +81,14 @@ main(int argc, char **argv)
 		err = -1;
 		goto end_label;
 	}
-	
+
+	ret = bcurl_set_useragent(HTTP_USERAGENT);	
+	if(ret != 0) {
+		fprintf(stderr, "Could not set user agent: %s\n",
+		    strerror(ret));
+		err = -1;
+		goto end_label;
+	}
 
 	if(argc < 2) {
 		usage(execn);
@@ -457,15 +467,19 @@ end_label:
 
 
 #define TOKEN_EXPIRE_MARGIN	600	/* Refresh 10 minutes before expiry */
+#define TOKEN_URL		"https://www.reddit.com/api/v1/access_token"
 
 int
 checktoken(void)
 {
 	int	err;
 	bstr_t	*postdata;
+	int	ret;
+	bstr_t	*resp;
 
 	err = 0;
 	postdata = NULL;
+	resp = NULL;
 
 	/* token_expire will be 0 on startup */
 	if((token_expire != 0) &&
@@ -474,12 +488,58 @@ checktoken(void)
 
 
 	/* Token about to expire, get a new one. */
+	postdata = binit();
+	if(postdata == NULL) {
+		blogf("Couldn't initialize postdata");
+		err = ENOMEM;
+		goto end_label;
+	}
 
+	ret = bstrcat_urlenc_field(postdata, "grant_type", "password");
+	if(ret != 0) {
+		blogf("Couldn't add grant type to postdata");
+		err = ret;
+		goto end_label;
+	}
+
+	ret = bstrcat_urlenc_field(postdata, "username", bget(usern));
+	if(ret != 0) {
+		blogf("Couldn't add user name to postdata");
+		err = ret;
+		goto end_label;
+	}
+
+	ret = bstrcat_urlenc_field(postdata, "password", bget(passw));
+	if(ret != 0) {
+		blogf("Couldn't add password to postdata");
+		err = ret;
+		goto end_label;
+	}
+
+	ret = bcurl_post_opts(TOKEN_URL, postdata, &resp,
+	    bget(clientid), bget(clientsecr));
+	if(ret != 0) {
+		blogf("Couldn't request new token");
+		err = ret;
+		goto end_label;
+	}
+
+	if(bstrempty(resp)) {
+		blogf("Response is empty");
+		err = EINVAL;
+		goto end_label;
+	}
+	
+
+	printf("=====\n%s\n=====\n", bget(resp));
+
+	
 
 
 end_label:
 
 	buninit(&postdata);
+	buninit(&resp);
 	return err;
 }
 
