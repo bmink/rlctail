@@ -2,5 +2,5 @@ curl -X POST -d 'grant_type=password&username=<usern>&password=<passwd>' --user 
 
 curl -H "Authorization: bearer <token>" -A 'rlcprint' https://oauth.reddit.com/api/v1/me | jq .
 
-log stream --predicate 'process=="rlctail" && messageType=="info"' --level info
+log stream --style syslog --predicate 'process=="rlctail" && messageType=="info"' --level info
 

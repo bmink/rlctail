@@ -204,6 +204,13 @@ main(int argc, char **argv)
 		goto end_label;
 	} 
 
+	token = binit();
+	if(token == NULL) {
+		blogf("Couldn't initialize token");
+		err = ENOMEM;
+		goto end_label;
+	}
+
 	ret = checktoken();
 	if(ret != 0) {
 		fprintf (stderr, "Could not authenticate with Reddit.\n");
@@ -479,19 +486,25 @@ checktoken(void)
 	int	ret;
 	bstr_t	*resp;
 	cJSON	*json;
+	int	expiresin;
 
 	err = 0;
 	postdata = NULL;
 	resp = NULL;
 	json = NULL;
+	expiresin = 0;
 
 	/* token_expire will be 0 on startup */
 	if((token_expire != 0) &&
 	    (time(NULL) + TOKEN_EXPIRE_MARGIN < token_expire))
 		goto end_label;
 
-
 	/* Token about to expire, get a new one. */
+
+	blogf("Refreshing access token");
+
+	bclear(token);
+
 	postdata = binit();
 	if(postdata == NULL) {
 		blogf("Couldn't initialize postdata");
@@ -534,34 +547,42 @@ checktoken(void)
 		goto end_label;
 	}
 
-	blogf("=====\n%s\n=====\n", bget(resp));
-
-/*
 	json = cJSON_Parse(bget(resp));
 	if(json == NULL) {
 		blogf("Couldn't parse response");
-		err = ENOEXEC;
+		err = EINVAL;
 		goto end_label;
 	}
 
-	ret = cjson_get_childstr(json, "username", usern);
+	ret = cjson_get_childstr(json, "access_token", token);
 	if(ret != 0) {
-		blogf("JSON didn't contain username");
-		err = ENOENT;
-		goto end_label;
-	}
-	
-	ret = cjson_get_childstr(json, "password", passw);
-	if(ret != 0) {
-		blogf("JSON didn't contain passw");
+		blogf("JSON didn't contain access_token");
 		err = ENOENT;
 		goto end_label;
 	}
 
-*/
+	if(bstrempty(token)) {
+		blogf("token is empty");
+		err = EINVAL;
+		goto end_label;
+	}
 
-	
+	ret = cjson_get_childint(json, "expires_in", &expiresin);
+	if(ret != 0) {
+		blogf("JSON didn't contain expires_in");
+		err = ENOENT;
+		goto end_label;
+	}
 
+	if(expiresin <= 0) {
+		blogf("invalide expires_in");
+		err = EINVAL;
+		goto end_label;
+	}
+
+	token_expire = time(NULL) + expiresin;
+
+	blogf("Access token refreshed, expires in %d sec", expiresin);
 
 end_label:
 
