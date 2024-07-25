@@ -11,7 +11,7 @@ this feature using the Reddit API.
 usage:
 
   List current match threads:
-      rlctail -l <subreddit (sans '/r/' prefix)>
+      rlctail -l <subreddit (without '/r/' prefix)>
 
   Tail live comments on post:
       rlctail [-d delaysec] -f <postid>

@@ -242,7 +242,7 @@ usage(const char *execn)
 	printf("usage:\n");
 	printf("\n");
  	printf("  List current match threads:\n");
-	printf("      %s -l <subreddit (sans '/r/'"
+	printf("      %s -l <subreddit (without '/r/'"
 	    " prefix)>\n", execn);
 	printf("\n");
  	printf("  Tail live comments on post:\n");
