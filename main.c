@@ -56,6 +56,7 @@ main(int argc, char **argv)
 	appcredsfile = DEFAULT_APPCREDSFILE;
 	subredditn = NULL;
 	postid = NULL;
+	token = NULL;
 
 	execn = basename(argv[0]);
 	if(xstrempty(execn)) {
@@ -97,7 +98,7 @@ main(int argc, char **argv)
 	}
 
 
-	while ((c = getopt (argc, argv, "ha:u:d:l:t:")) != -1) {
+	while ((c = getopt (argc, argv, "ha:u:d:l:t:f:")) != -1) {
 		switch (c) {
 		case 'h':
 			usage(execn);
@@ -122,7 +123,7 @@ main(int argc, char **argv)
 			subredditn = optarg;
 			break;
 
-		case 't':
+		case 'f':
 			if(mode != MODE_NONE) {
 				fprintf(stderr,
 				    "More than one mode specified.\n");
@@ -219,6 +220,7 @@ end_label:
 
 	buninit(&usern);
 	buninit(&passw);
+	buninit(&token);
 
 	return err;
 	
@@ -237,7 +239,7 @@ usage(const char *execn)
 	    " prefix)>\n", execn);
 	printf("\n");
  	printf("  Tail live comments on post:\n");
-	printf("      %s [-d delaysec] -t <postid>\n", execn);
+	printf("      %s [-d delaysec] -f <postid>\n", execn);
 	printf("\n");
  	printf("  Replay comments on post:\n");
 	printf("      %s -t <time> -r <postid>\n", execn);
@@ -476,10 +478,12 @@ checktoken(void)
 	bstr_t	*postdata;
 	int	ret;
 	bstr_t	*resp;
+	cJSON	*json;
 
 	err = 0;
 	postdata = NULL;
 	resp = NULL;
+	json = NULL;
 
 	/* token_expire will be 0 on startup */
 	if((token_expire != 0) &&
@@ -529,9 +533,32 @@ checktoken(void)
 		err = EINVAL;
 		goto end_label;
 	}
-	
 
-	printf("=====\n%s\n=====\n", bget(resp));
+	blogf("=====\n%s\n=====\n", bget(resp));
+
+/*
+	json = cJSON_Parse(bget(resp));
+	if(json == NULL) {
+		blogf("Couldn't parse response");
+		err = ENOEXEC;
+		goto end_label;
+	}
+
+	ret = cjson_get_childstr(json, "username", usern);
+	if(ret != 0) {
+		blogf("JSON didn't contain username");
+		err = ENOENT;
+		goto end_label;
+	}
+	
+	ret = cjson_get_childstr(json, "password", passw);
+	if(ret != 0) {
+		blogf("JSON didn't contain passw");
+		err = ENOENT;
+		goto end_label;
+	}
+
+*/
 
 	
 
@@ -540,6 +567,11 @@ end_label:
 
 	buninit(&postdata);
 	buninit(&resp);
+
+	if(json != NULL) {
+		cJSON_Delete(json);
+	}
+
 	return err;
 }
 
