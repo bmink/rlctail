@@ -477,6 +477,7 @@ end_label:
 
 #define TOKEN_EXPIRE_MARGIN	600	/* Refresh 10 minutes before expiry */
 #define TOKEN_URL		"https://www.reddit.com/api/v1/access_token"
+#define API_PREFIX		"https://oauth.reddit.com"
 
 int
 checktoken(void)
@@ -487,12 +488,14 @@ checktoken(void)
 	bstr_t	*resp;
 	cJSON	*json;
 	int	expiresin;
+	bstr_t	*url;
 
 	err = 0;
 	postdata = NULL;
 	resp = NULL;
 	json = NULL;
 	expiresin = 0;
+	url = NULL;
 
 	/* token_expire will be 0 on startup */
 	if((token_expire != 0) &&
@@ -504,6 +507,17 @@ checktoken(void)
 	blogf("Refreshing access token");
 
 	bclear(token);
+
+	url = binit();
+	if(url == NULL) {
+		blogf("Couldn't initialize url");
+		err = ENOMEM;
+		goto end_label;
+	}
+
+	bstrcat(url, TOKEN_URL);
+
+	blogf("url=%s", bget(url));
 
 	postdata = binit();
 	if(postdata == NULL) {
@@ -533,7 +547,7 @@ checktoken(void)
 		goto end_label;
 	}
 
-	ret = bcurl_post_opts(TOKEN_URL, postdata, &resp,
+	ret = bcurl_post_opts(bget(url), postdata, &resp,
 	    bget(clientid), bget(clientsecr));
 	if(ret != 0) {
 		blogf("Couldn't request new token");
@@ -584,10 +598,44 @@ checktoken(void)
 
 	blogf("Access token refreshed, expires in %d sec", expiresin);
 
+
+{
+	bclear(url);
+	bclear(resp);
+	bprintf(url, "%s/r/soccer/hot", API_PREFIX);
+	bstr_t *hdr = binit();
+	bprintf(hdr, "Authorization: bearer %s", bget(token));
+	bcurl_header_add(bget(hdr));
+
+	blogf("%s", bget(url));
+	blogf("%s", bget(hdr));
+
+	ret = bcurl_get(bget(url), &resp);
+	if(ret != 0) {
+		blogf("Couldn't make request");
+		err = ret;
+		goto end_label;
+	}
+
+	if(bstrempty(resp)) {
+		blogf("Response is empty");
+		err = EINVAL;
+		goto end_label;
+	}
+
+	blogf("%s", bget(resp));
+
+	buninit(&hdr);
+
+}
+
+
+
 end_label:
 
 	buninit(&postdata);
 	buninit(&resp);
+	buninit(&url);
 
 	if(json != NULL) {
 		cJSON_Delete(json);
