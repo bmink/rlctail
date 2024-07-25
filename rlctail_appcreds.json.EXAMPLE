@@ -1,0 +1,4 @@
+{
+	"clientid": "<Reddit developer app ID>", 
+	"clientsecret": "<App secret>"
+}
