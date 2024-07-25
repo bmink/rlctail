@@ -7,6 +7,25 @@ did this (sans the ability to delay or replay comments), however in early 2024,
 this feature was removed from the app. It is still possible to implement this
 feature using the Reddit API.
 
+```
+usage:
+
+  List current match threads:
+      rlctail -l <subreddit (sans '/r/' prefix)>
+
+  Tail live comments on post:
+      rlctail [-d delaysec] -f <postid>
+
+  Replay comments on post:
+      rlctail -t <time> -r <postid>
+
+  For all invocations, alternate credential files can be specified via:
+      [-u <usrcredsfile>]
+      [-a <appcredsfile>]
+```
+
+
+Setup:
 
 1) Put Reddit user credendials in .rlctail_usercreds.json:
 
