@@ -4,3 +4,6 @@ curl -H "Authorization: bearer <token>" -A 'rlcprint' https://oauth.reddit.com/a
 
 log stream --style syslog --predicate 'process=="rlctail" && messageType=="info"' --level info
 
+curl -H "Authorization: bearer <token>" -A 'macos:rlctail:1.0 (by /u/brewbake)' "https://oauth.reddit.com/r/soccer/comments/1ebogkt?raw_json=1&sort=new&showmore=0&depth=1&limit=50&showmedia=0&showtitle=0&showedits=0" | jq .
+
+
