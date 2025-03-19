@@ -3,3 +3,4 @@ rlctail
 *.swp
 .rlctail_usercreds.json
 .rlctail_appcreds.json
+out*

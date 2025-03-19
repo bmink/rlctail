@@ -1,5 +1,5 @@
 P = rlctail
-OBJS = main.o cJSON.o cJSON_helper.o
+OBJS = main.o reddit.o cJSON.o cJSON_helper.o
 CFLAGS = -g -Wall -Wstrict-prototypes
 LDLIBS = -lb -lcurl
 
