@@ -1,6 +1,6 @@
 # rlctail
 
-[Screenshot of rlctail printing Reddit comments while a soccer game is being watched on the screen](screenshot.png)
+![Screenshot of rlctail printing Reddit comments while a soccer game is being watched on the screen](screenshot.png)
 
 Live stream comments on a Reddit post. This is handy when watching soccer games
 or other sporting evets as well as during rapidly developing world events.
