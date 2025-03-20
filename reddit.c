@@ -248,6 +248,7 @@ check_token(void)
 	cJSON	*json;
 	int	expiresin;
 	bstr_t	*url;
+	bstr_t	*hdr;
 
 	err = 0;
 	postdata = NULL;
@@ -255,6 +256,7 @@ check_token(void)
 	json = NULL;
 	expiresin = 0;
 	url = NULL;
+	hdr = NULL;
 
 	/* token_expire will be 0 on startup */
 	if((token_expire != 0) &&
@@ -355,41 +357,23 @@ check_token(void)
 
 	token_expire = time(NULL) + expiresin;
 
-	blogf("Access token refreshed, expires in %d sec", expiresin);
+	hdr = binit();
+	if(hdr == NULL) {
+		blogf("Couldn't initialize hdr");
+		err = ENOMEM;
+		goto end_label;
+	}
 
-
-{
-	bclear(url);
-	bclear(resp);
-	bprintf(url, "%s/r/soccer/comments/1je6e68?sort=best&depth=1&limit=10&after=t1_mig06tv", API_PREFIX);
-	bstr_t *hdr = binit();
+	/* bcurl will add the authorization header, to all subsequent
+	 * requests it makes. */
 	bprintf(hdr, "Authorization: bearer %s", bget(token));
 	bcurl_header_add(bget(hdr));
 
-	blogf("%s", bget(url));
-	blogf("%s", bget(hdr));
+	blogf("Access token refreshed, expires in %d sec", expiresin);
 
-	ret = bcurl_get(bget(url), &resp);
-	if(ret != 0) {
-		blogf("Couldn't make request");
-		err = ret;
-		goto end_label;
-	}
-
-	if(bstrempty(resp)) {
-		blogf("Response is empty");
-		err = EINVAL;
-		goto end_label;
-	}
-
-	blogf("%s", bget(resp));
-
-	btofile("out.json", resp);
-
-	buninit(&hdr);
-
-}
-
+#if 0
+	blogf("Token: %s", bget(token));
+#endif
 
 
 end_label:
@@ -397,6 +381,7 @@ end_label:
 	buninit(&postdata);
 	buninit(&resp);
 	buninit(&url);
+	buninit(&hdr);
 
 	if(json != NULL) {
 		cJSON_Delete(json);
@@ -485,5 +470,227 @@ reddit_uninit(void)
 	buninit(&clientsecr);
 	buninit(&token);
 }
+
+
+int
+reddit_get_new_comments(const char *subreddit, const char *postid,
+	barr_t *comments, const int maxcnt)
+{
+	int			err;
+	int			ret;
+	bstr_t			*resp;
+	cJSON			*json;
+	bstr_t			*url;
+	cJSON			*listing;
+	cJSON			*listingdata;
+	cJSON			*listingchildren;
+	cJSON			*listingchild;
+	cJSON			*listingchilddata;
+	bstr_t			*val;
+	cJSON			*stickied;
+	reddit_comment_t	comment;
+	int			addedcnt;
+
+	err = 0;
+	resp = NULL;
+	json = NULL;
+	url = NULL;
+	val = NULL;
+	addedcnt = 0;
+	memset(&comment, 0, sizeof(reddit_comment_t));
+	
+	ret = check_token();
+	if(ret != 0) {
+		blogf("Token check failed");
+		err = -1;
+		goto end_label;
+	}
+
+	url = binit();
+	if(url == NULL) {
+		blogf("Couldn't initialize url");
+		err = ENOMEM;
+		goto end_label;
+	}
+
+	/* Why we call this with maxcnt + 1: reddit threads often have a
+	 * sticky comment at the top and this is always returned by the
+	 * API call. In case there's no sticky, it's still ok to request more
+	 * comments than we need since we will bail out during parsing when
+	 * we reach maxcnt. */
+	bprintf(url, "%s/r/%s/comments/%s?sort=best&depth=1&limit=%d",
+	    API_PREFIX, subreddit, postid, maxcnt + 1);
+
+
+#if 0
+	blogf("url=%s", bget(url));
+#endif
+
+	ret = bcurl_get(bget(url), &resp);
+	if(ret != 0) {
+		blogf("Couldn't make request");
+		err = ret;
+		goto end_label;
+	}
+
+	if(bstrempty(resp)) {
+		blogf("Response is empty");
+		err = EINVAL;
+		goto end_label;
+	}
+
+	json = cJSON_Parse(bget(resp));
+	if(json == NULL) {
+		blogf("Couldn't parse JSON");
+		err = ENOEXEC;
+		goto end_label;
+	}
+
+	if(!cJSON_IsArray(json)) {
+		blogf("Returned JSON is not an array");
+		err = ENOEXEC;
+
+	}
+
+	val = binit();
+	if(val == NULL) {
+		blogf("Couldn't initialize val");
+		err = ENOMEM;
+		goto end_label;
+	}
+
+
+	for(listing = json->child; listing; listing = listing->next) {
+
+		bclear(val);
+		ret = cjson_get_childstr(listing, "kind", val);
+		if(ret != 0 || bstrcmp(val, "Listing"))
+			continue;
+
+		listingdata = cJSON_GetObjectItemCaseSensitive(listing,
+                    "data");
+                if(listingdata == NULL) {
+			blogf("Listing didn't contain data");
+			continue;
+		}
+
+		listingchildren = cJSON_GetObjectItemCaseSensitive(listingdata,
+                    "children");
+		if(listingchildren == NULL ||
+		    !cJSON_IsArray(listingchildren)) {
+			blogf("Listing data didn't contain \"children\" array");
+				continue;
+		}
+		
+		for(listingchild = listingchildren->child; listingchild;
+		    listingchild = listingchild->next) {
+			bclear(val);
+			ret = cjson_get_childstr(listingchild, "kind", val);
+			/* On Reddit, a t1 type is a comment */
+			if(ret != 0 || bstrcmp(val, "t1"))
+				continue;
+
+			listingchilddata = cJSON_GetObjectItemCaseSensitive(
+			    listingchild, "data");
+			if(listingchilddata == NULL ||
+			    !cJSON_IsObject(listingchilddata)) {
+				blogf("Listing child element didn't contain"
+				    " \"data\" object");
+				continue;
+			}
+				
+			/* Ignore stickied comments */
+			stickied = cJSON_GetObjectItemCaseSensitive(
+			    listingchilddata, "stickied");
+			if(stickied != NULL && cJSON_IsTrue(stickied))
+				continue;
+
+
+			comment.rc_id = binit();
+			if(comment.rc_id == NULL) {
+				blogf("Can't allocate comment.rc_id");
+				err = ENOMEM;
+				goto end_label;
+			}
+
+			ret = cjson_get_childstr(listingchilddata, "name",
+			    comment.rc_id);
+			if(ret != 0) {
+				blogf("Comment had no \"name\"");
+				err = ENOENT;
+				goto end_label;
+			} 
+
+			comment.rc_author = binit();
+			if(comment.rc_author == NULL) {
+				blogf("Can't allocate comment.rc_author");
+				err = ENOMEM;
+				goto end_label;
+			}
+
+			ret = cjson_get_childstr(listingchilddata, "author",
+			    comment.rc_author);
+			if(ret != 0) {
+				blogf("Comment had no author");
+				err = ENOENT;
+				goto end_label;
+			} 
+
+			comment.rc_body = binit();
+			if(comment.rc_body == NULL) {
+				blogf("Can't allocate comment.rc_body");
+				err = ENOMEM;
+				goto end_label;
+			}
+			ret = cjson_get_childstr(listingchilddata, "body",
+			    comment.rc_body);
+			if(ret != 0) {
+				blogf("Comment had no body");
+				err = ENOENT;
+				goto end_label;
+			}
+
+blogf("body: %s", bget(comment.rc_body));
+
+			barr_add(comments, &comment);
+			memset(&comment, 0, sizeof(reddit_comment_t));
+
+			++addedcnt;
+
+			if(addedcnt >= maxcnt)
+				break;
+
+		}
+	
+		if(addedcnt >= maxcnt)
+			break;
+	}
+
+
+#if 0
+	btofile("out.json", resp);
+#endif
+
+
+end_label:
+
+	buninit(&resp);
+	buninit(&url);
+	buninit(&val);
+
+	if(json != NULL) {
+		cJSON_Delete(json);
+	}
+
+	if(comment.rc_id)
+		buninit(&comment.rc_id);
+	if(comment.rc_author)
+		buninit(&comment.rc_author);
+	if(comment.rc_body)
+		buninit(&comment.rc_body);
+
+	return err;
+}
+
 
 
