@@ -518,7 +518,7 @@ reddit_get_new_comments(const char *subreddit, const char *postid,
 	 * API call. In case there's no sticky, it's still ok to request more
 	 * comments than we need since we will bail out during parsing when
 	 * we reach maxcnt. */
-	bprintf(url, "%s/r/%s/comments/%s?sort=best&depth=1&limit=%d",
+	bprintf(url, "%s/r/%s/comments/%s?sort=new&depth=1&limit=%d",
 	    API_PREFIX, subreddit, postid, maxcnt + 1);
 
 
@@ -649,8 +649,9 @@ reddit_get_new_comments(const char *subreddit, const char *postid,
 				err = ENOENT;
 				goto end_label;
 			}
-
+#if 0
 blogf("body: %s", bget(comment.rc_body));
+#endif
 
 			barr_add(comments, &comment);
 			memset(&comment, 0, sizeof(reddit_comment_t));

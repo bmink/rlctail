@@ -19,7 +19,10 @@ void usage(const char *);
 
 #define MAX_COMMENTS	20 
 
+bstr_t	*last_comment_id = NULL;
 
+#define MAX_AUTHORNAME_LEN	10
+#define MAX_BODY_LEN		60
 
 int
 print_new_comments(const char *subredditn, const char *postid)
@@ -27,14 +30,17 @@ print_new_comments(const char *subredditn, const char *postid)
 
 	barr_t			*comments;
 	reddit_comment_t	*comment;
+	reddit_comment_t	*start;
 	int			ret;
 	int			err;
+	bstr_t			*val;
 
 	if(xstrempty(subredditn) || xstrempty(postid))
 		return EINVAL;
 
 	err = 0;
 	comments = NULL;
+	val = NULL;
 
 	comments = barr_init(sizeof(reddit_comment_t));
 	if(comments == NULL) {
@@ -52,11 +58,43 @@ print_new_comments(const char *subredditn, const char *postid)
 		goto end_label;
 	}
 
-	for(comment = (reddit_comment_t *)barr_begin(comments);
-	    comment < (reddit_comment_t *)barr_end(comments);
-	    ++comment) {
-		printf("(%s) %s\n\n", bget(comment->rc_author),
-		    bget(comment->rc_body));
+	if(barr_cnt(comments) == 0)
+		goto end_label;
+
+		
+	for(start = (reddit_comment_t *)barr_begin(comments);
+	    start < (reddit_comment_t *)barr_end(comments);
+	    ++start) {
+		if(!bstrcmp(start->rc_id, bget(last_comment_id)))
+			break;
+	}
+
+	if(start == (reddit_comment_t *)barr_begin(comments)) {
+		/* No new comments since last seen one */
+		goto end_label;
+	}
+
+	val = binit();
+	if(val == NULL) {
+		blogf("Could not allocate val");
+		err = ENOMEM;
+		goto end_label;
+	}
+	
+	for(comment = start - 1;
+	    comment >= (reddit_comment_t *) barr_begin(comments); --comment) {
+
+		bstrtomaxlen(comment->rc_author, val, MAX_AUTHORNAME_LEN, 0);
+		bstrpad(val, MAX_AUTHORNAME_LEN, ' ');
+		printf("(%s)-> ", bget(val));
+		bstrtomaxlen(comment->rc_body, val, MAX_BODY_LEN, 0);
+		printf("%s\n", bget(val));
+	}
+
+	if(barr_cnt(comments) > 0) {
+		bclear(last_comment_id);	
+		bstrcat(last_comment_id, bget(
+		    ((reddit_comment_t *)barr_elem(comments, 0))->rc_id));
 	}
 
 
@@ -71,6 +109,8 @@ end_label:
 		}
 		barr_uninit(&comments);
 	}
+
+	buninit(&val);
 
 	return err;
 }
@@ -88,7 +128,6 @@ main(int argc, char **argv)
 	int	delaysec;
 	char	*usercredsfile;
 	char	*appcredsfile;
-	int	i;
 	barr_t	*urlparts;
 	bstr_t 	*elem;
 	
@@ -230,7 +269,15 @@ main(int argc, char **argv)
 		goto end_label;
 	}
 
-	for(i = 0; i < 5; ++i) {
+	last_comment_id = binit();
+	if(last_comment_id == NULL) {
+		fprintf(stderr, "Could not allocate last_comment_id");
+		err = -1;
+		goto end_label;
+	}
+
+
+	while(1) {
 		ret = print_new_comments(bget(subredditn), bget(postid));
 		if(ret != 0) {
 			fprintf(stderr, "Error while printing new comments\n");
@@ -238,7 +285,7 @@ main(int argc, char **argv)
 			goto end_label;
 		}
 
-		sleep(2);
+		sleep(1);
 	}
 
 
@@ -256,6 +303,8 @@ end_label:
 		}
 		barr_uninit(&urlparts);
 	}
+
+	buninit(&last_comment_id);
 
 	return err;
 }
