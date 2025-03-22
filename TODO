@@ -1,0 +1,7 @@
+* Multithread
+* -d <delaysec>
+* specify number of instances running / decrease query frequency accordingly
+* compact vs. full mode
+  - compact: remove newline, adjust to terminal width (query terminal width
+    every few seconds?)
+

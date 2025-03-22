@@ -22,7 +22,7 @@ void usage(const char *);
 bstr_t	*last_comment_id = NULL;
 
 #define MAX_AUTHORNAME_LEN	10
-#define MAX_BODY_LEN		60
+#define MAX_BODY_LEN		70
 
 int
 print_new_comments(const char *subredditn, const char *postid)
