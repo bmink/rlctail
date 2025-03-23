@@ -4,4 +4,5 @@
 * compact vs. full mode
   - compact: remove newline, adjust to terminal width (query terminal width
     every few seconds?)
+* Properly hide cursor while running, unhide when exiting
 

@@ -22,7 +22,7 @@ void usage(const char *);
 bstr_t	*last_comment_id = NULL;
 
 #define MAX_AUTHORNAME_LEN	10
-#define MAX_BODY_LEN		70
+#define MAX_BODY_LEN		75
 
 int
 print_new_comments(const char *subredditn, const char *postid)
@@ -41,6 +41,9 @@ print_new_comments(const char *subredditn, const char *postid)
 	err = 0;
 	comments = NULL;
 	val = NULL;
+
+/* Hide cursor. TODO Reenable when exiting. */
+printf("\e[?25l");
 
 	comments = barr_init(sizeof(reddit_comment_t));
 	if(comments == NULL) {
@@ -86,9 +89,12 @@ print_new_comments(const char *subredditn, const char *postid)
 
 		bstrtomaxlen(comment->rc_author, val, MAX_AUTHORNAME_LEN, 0);
 		bstrpad(val, MAX_AUTHORNAME_LEN, ' ');
-		printf("(%s)-> ", bget(val));
+		printf("\n(%s)-> ", bget(val));
 		bstrtomaxlen(comment->rc_body, val, MAX_BODY_LEN, 0);
-		printf("%s\n", bget(val));
+		printf("%s", bget(val));
+		/* No newline so we print all the way to the bottom of the screen.
+		 * But then we fflush() to make sure all text gets printed. */
+		fflush(stdout);
 	}
 
 	if(barr_cnt(comments) > 0) {
