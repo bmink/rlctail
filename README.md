@@ -10,7 +10,7 @@ it is still possible to implement the functionality using the Reddit API.
 
 Additional features:
 * Multithreaded implementation ensures smooth comment scrolling as new comments
-are requested in batches in the background.
+come in in batches in the background.
 * Comments can be delayed by a specified number of seconds (handy when your
 stream is behind) 
 * Display will adjust dynamically to the width of the terminal window
