@@ -654,7 +654,8 @@ usage(const char *execn)
 	printf("      -d <delaysec>\n");
 	printf("              Delay comment display by this many seconds\n");
 	printf("\n");
-	printf("      -f      Full comment display mode\n");
+	printf("      -f      Full comment display mode  (default is compact"
+	    " display)\n");
 	printf("\n");
 	printf("      -n <instance cnt>\n");
 	printf("              Number of concurrent processes\n");

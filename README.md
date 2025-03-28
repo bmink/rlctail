@@ -31,7 +31,7 @@ usage:
       -d <delaysec>
               Delay comment display by this many seconds
 
-      -f      Full comment display mode
+      -f      Full comment display mode (default is compact display)
 
       -n <instance cnt>
               Number of concurrent processes
