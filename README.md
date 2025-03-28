@@ -25,6 +25,7 @@ stays under the query limit of the Reddit API's free tier
 usage:
 
   Tail live comments on post:
+
       rlctail [options] <reddit_post_url>
 
   To exit, press Ctrl-C or send SIGTERM (eg. 'kill <pid>')
