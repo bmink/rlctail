@@ -10,7 +10,8 @@ app. Luckily it is still possible to implement the functionality using the
 Reddit API.
 
 Additional features:
-* Comments can be delayed by a specified number of seconds 
+* Comments can be delayed by a specified number of seconds (handy when your
+stream is behind) 
 * Display will adjust dynamically to the width of the terminal window
 * Number of total pending comments is displayed in the top-right corner
 * If more than one instances of rlctail are running at the same time, this
