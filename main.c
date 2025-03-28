@@ -606,8 +606,6 @@ main(int argc, char **argv)
 		goto end_label;
 	}
 		
-	
-
 
 end_label:
 
@@ -637,8 +635,6 @@ end_label:
 
 	return err;
 }
-
-
 
 
 void
