@@ -16,7 +16,7 @@ stream is behind)
 * Number of total pending comments is displayed in the top-right corner
 * If more than one instances of rlctail are running at the same time, this
 should be specified using the -n option. This will make rlctail adjust the
-frequency of its queries to Reddit so it stays under the query limit of the
+frequency of its requests to Reddit so it stays under the query limit of the
 Reddit API's free tier
 
 
