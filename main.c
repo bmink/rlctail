@@ -649,6 +649,8 @@ usage(const char *execn)
  	printf("  Tail live comments on post:\n");
 	printf("      %s <reddit_post_url>\n", execn);
 	printf("\n");
+	printf("  To exit, press Ctrl-C or send SIGTERM (eg. 'kill <pid>')\n");
+	printf("\n");
 	printf("  Supported options:\n");
 	printf("\n");
 	printf("      -d <delaysec>\n");
