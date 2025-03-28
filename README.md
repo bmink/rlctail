@@ -8,23 +8,39 @@ Reddit app used to have a "live" sort mode for comments that basically did
 this, however in early 2024, this feature was removed from the app. Luckily it
 is still possible to implement the functionality using the Reddit API.
 
+Additional features:
+* Comments can be delayed by a specified number of seconds 
+* Number of total pending comments is displayed in the top-right corner
+* If more than one instances of rlctail are running at the same time, this
+should be specified using the -n option. This will make rlctail adjust the
+frequency of its queries to Reddit so it stays under the query limit of the
+Reddit API's free tier
+
+
 ```
 usage:
 
-  List current match threads:
-      rlctail -l <subreddit (without '/r/' prefix)>
-
   Tail live comments on post:
-      rlctail [-d delaysec] -f <postid>
+      rlctail <reddit_post_url>
 
-  Replay comments on post:
-      rlctail -t <time> -r <postid>
+  Supported options:
 
-  For all invocations, alternate credential files can be specified via:
-      [-u <usrcredsfile>]
-      [-a <appcredsfile>]
+      -d <delaysec>
+              Delay comment display by this many seconds
+
+      -f      Full comment display mode
+
+      -n <instance cnt>
+              Number of concurrent processes
+
+      -u <usrcredsfile>
+              Alternate user credentials file
+
+      -a <appcredsfile>
+              Alternate app credentials file
+
+      -h      Print this help text and exit
 ```
-
 
 Setup:
 

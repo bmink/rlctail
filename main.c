@@ -646,19 +646,26 @@ usage(const char *execn)
 {
 	printf("usage:\n");
 	printf("\n");
- 	printf("  List current match threads:\n");
-	printf("      %s -l <subreddit (without '/r/'"
-	    " prefix)>\n", execn);
-	printf("\n");
  	printf("  Tail live comments on post:\n");
-	printf("      %s [-d delaysec] -f <postid>\n", execn);
+	printf("      %s <reddit_post_url>\n", execn);
 	printf("\n");
- 	printf("  Replay comments on post:\n");
-	printf("      %s -t <time> -r <postid>\n", execn);
+	printf("  Supported options:\n");
 	printf("\n");
-	printf("  For all invocations, alternate credential files can be specified via:\n");
-	printf("      [-u <usrcredsfile>]\n");
-	printf("      [-a <appcredsfile>]\n");
+	printf("      -d <delaysec>\n");
+	printf("              Delay comment display by this many seconds\n");
+	printf("\n");
+	printf("      -f      Full comment display mode\n");
+	printf("\n");
+	printf("      -n <instance cnt>\n");
+	printf("              Number of concurrent processes\n");
+	printf("\n");
+	printf("      -u <usrcredsfile>\n");
+	printf("              Alternate user credentials file\n");
+	printf("\n");
+	printf("      -a <appcredsfile>\n");
+	printf("              Alternate app credentials file\n");
+	printf("\n");
+	printf("      -h      Print this help text and exit\n");
 	printf("\n");
 }
 
