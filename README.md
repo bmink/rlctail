@@ -5,9 +5,8 @@
 Tail (live stream) comments on a Reddit post. This is handy when watching
 soccer games or other sporting evets as well as during rapidly developing world
 events.  The Reddit app used to have a "live" sort mode for comments that
-basically did this, however in early 2024, this feature was removed from the
-app. Luckily it is still possible to implement the functionality using the
-Reddit API.
+basically did this, however in early 2024, this feature was removed.  Luckily
+it is still possible to implement the functionality using the Reddit API.
 
 Additional features:
 * Multithreaded implementation ensures smooth comment scrolling as new comments
