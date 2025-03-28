@@ -16,7 +16,7 @@ stream is behind)
 * Display will adjust dynamically to the width of the terminal window
 * Number of total pending comments is displayed in the top-right corner
 * If more than one instances of rlctail are running at the same time, this
-should be specified using the -n option. This will make rlctail adjust the
+should be specified using the `-n` option. This will make rlctail adjust the
 frequency of its requests to Reddit so the cumulative number of requests
 stays under the query limit of the Reddit API's free tier
 
