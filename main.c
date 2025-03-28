@@ -20,8 +20,6 @@
 
 void usage(const char *);
 
-#define MAX_COMMENTS	20 
-
 blist_t	*	pending_comments = NULL;
 pthread_mutex_t	pending_comments_mutex;
 
@@ -33,9 +31,9 @@ bstr_t	*postid = NULL;
 int		do_shutdown = 0;
 pthread_mutex_t	do_shutdown_mutex;
 
-#define PRINTER_SLEEP_US	30 * 1000	/* 50 ms */
-#define MAX_PENDING		100
+#define PRINTER_SLEEP_MS	20
 
+int getter_sleep_sec = 1;
 
 void
 freecomment(reddit_comment_t *rc)
@@ -61,6 +59,8 @@ comment_getter(void *arg)
 	reddit_comment_t	*commcopy;
 	reddit_comment_t	*start;
 	int			added;
+	int			maxpending;
+	int			maxcomments;
 
 	doexit = 0;	
 	last_comment_id = NULL;
@@ -71,6 +71,20 @@ comment_getter(void *arg)
 		blogf("Could not allocate last_comment_id");
 		goto end_label;
 	}
+
+	/* Cap the queue capacity at several times the amount we could display
+	 * at the highest speed of comment scrolling. We could, or course, hold
+	 * "infinite" (or at least a very large number of) pending comments.
+	 * But it's actually better to start shedding comments sooner rather
+	 * than later. This limit will act as a natural throttling mechanism. 
+	 * If comments keep coming in very fast, them some comments will start
+	 * to get thrown out, but that's OK. The user will get the gist of
+	 * what's going on by reading the comments that do get displayed.
+	 * The alternative to this is either building up too large a backlog
+	 * or scrolling comments too fast */
+	maxpending = (getter_sleep_sec * (1000 / PRINTER_SLEEP_MS)) * 10;
+
+	maxcomments = getter_sleep_sec * (1000 / PRINTER_SLEEP_MS);
 
 	while(1) {
 
@@ -98,7 +112,7 @@ comment_getter(void *arg)
 		}
 
 		ret = reddit_get_new_comments(bget(subredditn), bget(postid),
-		    comments, MAX_COMMENTS);
+		    comments, maxcomments);
 
 		if(ret != 0) {
 			blogf("Could not get new comments");
@@ -159,10 +173,11 @@ comment_getter(void *arg)
 			}
 
 			added = 0;
-			if(blist_cnt(pending_comments) < MAX_PENDING) {
+			if(blist_cnt(pending_comments) < maxpending) {
 				blist_rpush(pending_comments, (void *)commcopy);
 				if(ret != 0) {
-					blogf("Couldn't add comment to pending list");
+					blogf("Couldn't add comment to"
+					    " pending list");
 				}
 				++added;
 			}
@@ -175,27 +190,10 @@ comment_getter(void *arg)
 
 			if(!added) {
 				/* Pending queue is full, we discard the
-				 * comment. We could, or course, hold
-				 * "infinite" (or at least a very large
-				 * number of pending comments. But it's
-				 * actually better to start shedding comments
-				 * sooner rather than later. If comments are
-				 * coming in too fast, the screen would either
-				 * have to scroll too fast for reading,
-				 * or we'd fall behind. By observing a (not
-				 * too large) upper limit for the pending
-				 * queue, we essentially throttle the number
-				 * of comments the screen will show, keeping
-				 * things up to date and readable. Some
-				 * comments will get thrown out, yes, but
-				 * that's OK. The user will get the gist of
-				 * what's going on by reading the comments
-				 * that do get displayed. */
+				 * comment. */
 				freecomment(commcopy);
 			}
-
 		}
-
 
 cont_label:
 
@@ -210,7 +208,7 @@ cont_label:
 			barr_uninit(&comments);
 		}
 
-		sleep(1);
+		sleep(getter_sleep_sec);
 	}
 
 
@@ -242,6 +240,7 @@ comment_printer(void *arg)
 	reddit_comment_t	*comment;
 	bstr_t			*val;
 	struct winsize		wins;
+	int			sleepms;
 
 	doexit = 0;
 
@@ -320,7 +319,18 @@ cont_label:
 		printf("\e8");			/* Restore cursor position */
 		fflush(stdout);
 #endif
-		usleep(PRINTER_SLEEP_US);
+
+		if(pendcnt) {
+			sleepms = getter_sleep_sec * 1000 / 2 / pendcnt;
+			if(sleepms < PRINTER_SLEEP_MS)
+				sleepms = PRINTER_SLEEP_MS;
+		} else {
+			sleepms = PRINTER_SLEEP_MS;
+		}
+#if 0
+		printf("\nSleep: %d ms\n", sleepms);
+#endif
+		usleep(sleepms * 1000);
 
 	}
 
