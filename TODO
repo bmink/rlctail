@@ -2,7 +2,7 @@
 * -d <delaysec>
 * specify number of instances running / decrease query frequency accordingly
 * compact vs. full mode
-  - compact: remove newline, adjust to terminal width (query terminal width
+  - compact: replace newline with newline symbol, adjust to terminal width (query terminal width
     every few seconds?)
 * Properly hide cursor while running, unhide when exiting
 

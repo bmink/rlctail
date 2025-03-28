@@ -653,6 +653,8 @@ reddit_get_new_comments(const char *subreddit, const char *postid,
 blogf("body: %s", bget(comment.rc_body));
 #endif
 
+			time(&comment.rc_retrieved);
+
 			barr_add(comments, &comment);
 			memset(&comment, 0, sizeof(reddit_comment_t));
 
