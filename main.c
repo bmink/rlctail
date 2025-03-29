@@ -34,6 +34,7 @@ pthread_mutex_t	do_shutdown_mutex;
 #define PRINTER_MIN_SLEEP_MS	20
 #define PRINTER_MAX_SLEEP_MS	500
 
+int instancecount = 1;
 int getter_sleep_sec = 1;
 int delaysec = 0;
 
@@ -416,7 +417,7 @@ main(int argc, char **argv)
 		goto end_label;
 	}
 
-	while ((c = getopt (argc, argv, "ha:u:d:")) != -1) {
+	while ((c = getopt (argc, argv, "ha:u:d:n:")) != -1) {
 		switch (c) {
 		case 'h':
 			usage(execn);
@@ -439,9 +440,9 @@ main(int argc, char **argv)
 			}
 			delaysec = atoi(optarg);
 
-			if(delaysec == 0) {
+			if(delaysec <= 0) {
 				fprintf(stderr,
-				    "Delay has to be nonzero"
+				    "Delay has to be greater than zero"
 				    " (omit option for no delay).\n");
 				err = -1;
 				goto end_label;
@@ -449,11 +450,30 @@ main(int argc, char **argv)
 
 			break;
 
+		case 'n':
+			if(xstrempty(optarg)) {
+				fprintf(stderr,
+				    "Invalid instance count specified.\n");
+				err = -1;
+				goto end_label;
+			}
+			instancecount = atoi(optarg);
+
+			if(instancecount <= 0) {
+				fprintf(stderr,
+				    "Instance count has to be"
+				    " greater than zero.\n");
+				err = -1;
+				goto end_label;
+			}
+
+			break;
 
 		case '?':
 			fprintf (stderr, "Unknown option `-%c'\n", optopt);
 			err = -1;
 			goto end_label;
+
 		default:
 			fprintf (stderr, "Error while parsing options");
 			err = -1;
@@ -575,6 +595,10 @@ main(int argc, char **argv)
 		err = -1;
 		goto end_label;
 	}
+
+	/* Do (60/instancecount) requests per minute. Currently Reddit API
+	 * free tier limit is 100 / min so this will keep us well below that */
+	getter_sleep_sec = instancecount;
 
 	ret = pthread_create(&getter, NULL, comment_getter, NULL);
 	if(ret != 0) {
