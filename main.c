@@ -126,7 +126,6 @@ comment_getter(void *arg)
 		if(barr_cnt(comments) == 0)
 			goto cont_label;
 
-
 		for(start = (reddit_comment_t *)barr_begin(comments);
 		    start < (reddit_comment_t *)barr_end(comments);
 		    ++start) {
@@ -335,9 +334,9 @@ cont_label:
 
 #if 1
 		printf("\e7");			/* Save cursor position */
-		printf("\e[0;%dH", wins.ws_col - 11); /* Go to top right */
+		printf("\e[0;%dH", wins.ws_col - 12); /* Go to top right */
 		printf("\e[7m");		/* Invert colors */
-		printf("Pending:%3d \n", pendcnt);
+		printf(" Pending:%3d \n", pendcnt);
 		printf("\e[27m");		/* Restore colors */
 		printf("\e8");			/* Restore cursor position */
 		fflush(stdout);
