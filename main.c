@@ -31,9 +31,11 @@ bstr_t	*postid = NULL;
 int		do_shutdown = 0;
 pthread_mutex_t	do_shutdown_mutex;
 
-#define PRINTER_SLEEP_MS	20
+#define PRINTER_MIN_SLEEP_MS	20
+#define PRINTER_MAX_SLEEP_MS	500
 
 int getter_sleep_sec = 1;
+int delaysec = 0;
 
 void
 freecomment(reddit_comment_t *rc)
@@ -82,9 +84,9 @@ comment_getter(void *arg)
 	 * what's going on by reading the comments that do get displayed.
 	 * The alternative to this is either building up too large a backlog
 	 * or scrolling comments too fast */
-	maxpending = (getter_sleep_sec * (1000 / PRINTER_SLEEP_MS)) * 10;
+	maxpending = (getter_sleep_sec * (1000 / PRINTER_MIN_SLEEP_MS)) * 10;
 
-	maxcomments = getter_sleep_sec * (1000 / PRINTER_SLEEP_MS);
+	maxcomments = getter_sleep_sec * (1000 / PRINTER_MIN_SLEEP_MS);
 
 	while(1) {
 
@@ -241,6 +243,8 @@ comment_printer(void *arg)
 	bstr_t			*val;
 	struct winsize		wins;
 	int			sleepms;
+	time_t			now;
+	int			takeit;
 
 	doexit = 0;
 
@@ -275,13 +279,32 @@ comment_printer(void *arg)
 		/* Get terminal width */
 		ioctl(STDOUT_FILENO, TIOCGWINSZ, &wins);
 
+		time(&now);
+		takeit = 1;
+
 		ret = pthread_mutex_lock(&pending_comments_mutex);
 		if(ret != 0) {
 			blogf("Couldn't lock mutex, exiting thread");
 			return NULL;
 		}
 
-		comment = (reddit_comment_t *) blist_lpop(pending_comments);
+		if(delaysec > 0) {
+			comment = (reddit_comment_t *)
+                            blist_getidx(pending_comments, 0);
+			if(comment)
+//printf("%ld <= %ld\n", now, comment->rc_retrieved);
+			if(comment &&
+			    (now <= comment->rc_retrieved + delaysec)) {
+				takeit = 0;
+			}
+		} 
+	
+		if(takeit) {
+			comment = (reddit_comment_t *)
+			    blist_lpop(pending_comments);
+		} else
+			comment = NULL;
+
 		pendcnt = blist_cnt(pending_comments);
 
 		ret = pthread_mutex_unlock(&pending_comments_mutex);
@@ -322,10 +345,12 @@ cont_label:
 
 		if(pendcnt) {
 			sleepms = getter_sleep_sec * 1000 / 2 / pendcnt;
-			if(sleepms < PRINTER_SLEEP_MS)
-				sleepms = PRINTER_SLEEP_MS;
+			if(sleepms < PRINTER_MIN_SLEEP_MS)
+				sleepms = PRINTER_MIN_SLEEP_MS;
+			else if(sleepms > PRINTER_MAX_SLEEP_MS)
+				sleepms = PRINTER_MAX_SLEEP_MS;
 		} else {
-			sleepms = PRINTER_SLEEP_MS;
+			sleepms = PRINTER_MIN_SLEEP_MS;
 		}
 #if 0
 		printf("\nSleep: %d ms\n", sleepms);
@@ -354,7 +379,6 @@ main(int argc, char **argv)
 	int		ret;
 	int		c;
 	char		*redditurl;
-	int		delaysec;
 	char		*usercredsfile;
 	char		*appcredsfile;
 	barr_t		*urlparts;
@@ -369,7 +393,6 @@ main(int argc, char **argv)
 
 	
 	err = 0;
-	delaysec = 0;
 	usercredsfile = DEFAULT_USERCREDSFILE;
 	appcredsfile = DEFAULT_APPCREDSFILE;
 	subredditn = NULL;
