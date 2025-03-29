@@ -37,6 +37,7 @@ pthread_mutex_t	do_shutdown_mutex;
 int instancecount = 1;
 int getter_sleep_sec = 1;
 int delaysec = 0;
+int compact_disp = 1;
 
 void
 freecomment(reddit_comment_t *rc)
@@ -291,8 +292,6 @@ comment_printer(void *arg)
 		if(delaysec > 0) {
 			comment = (reddit_comment_t *)
                             blist_getidx(pending_comments, 0);
-			if(comment)
-//printf("%ld <= %ld\n", now, comment->rc_retrieved);
 			if(comment &&
 			    (now <= comment->rc_retrieved + delaysec)) {
 				takeit = 0;
@@ -315,6 +314,13 @@ comment_printer(void *arg)
 
 		if(comment == NULL)
 			goto cont_label;
+
+		if(!compact_disp) {
+			printf("\n==========\n");
+			printf("(%s)\n\n", bget(comment->rc_author));
+			printf("%s\n", bget(comment->rc_body));
+			goto cont_label;
+		}
 
 		bclear(val);
 		bstrtomaxlen(comment->rc_author, val, MAX_AUTHORNAME_LEN, 0);
@@ -417,7 +423,7 @@ main(int argc, char **argv)
 		goto end_label;
 	}
 
-	while ((c = getopt (argc, argv, "ha:u:d:n:")) != -1) {
+	while ((c = getopt (argc, argv, "ha:u:d:n:f")) != -1) {
 		switch (c) {
 		case 'h':
 			usage(execn);
@@ -467,6 +473,10 @@ main(int argc, char **argv)
 				goto end_label;
 			}
 
+			break;
+
+		case 'f':
+			compact_disp = 0;
 			break;
 
 		case '?':
@@ -597,7 +607,8 @@ main(int argc, char **argv)
 	}
 
 	/* Do (60/instancecount) requests per minute. Currently Reddit API
-	 * free tier limit is 100 / min so this will keep us well below that */
+	 * free tier limit is 100 / min so this will keep us well below
+	 * that */
 	getter_sleep_sec = instancecount;
 
 	ret = pthread_create(&getter, NULL, comment_getter, NULL);
