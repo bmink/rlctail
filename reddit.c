@@ -527,6 +527,7 @@ reddit_get_new_comments(const char *subreddit, const char *postid,
 #endif
 
 	ret = bcurl_get(bget(url), &resp);
+
 	if(ret != 0) {
 		blogf("Couldn't make request");
 		err = ret;

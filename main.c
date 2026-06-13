@@ -32,7 +32,7 @@ int		do_shutdown = 0;
 pthread_mutex_t	do_shutdown_mutex;
 
 #define PRINTER_MIN_SLEEP_MS	20
-#define PRINTER_MAX_SLEEP_MS	500
+#define PRINTER_MAX_SLEEP_MS	1500
 
 int instancecount = 1;
 int getter_sleep_sec = 1;
@@ -350,7 +350,7 @@ cont_label:
 #endif
 
 		if(pendcnt) {
-			sleepms = getter_sleep_sec * 1000 / 2 / pendcnt;
+			sleepms = getter_sleep_sec * 1000 / pendcnt;
 			if(sleepms < PRINTER_MIN_SLEEP_MS)
 				sleepms = PRINTER_MIN_SLEEP_MS;
 			else if(sleepms > PRINTER_MAX_SLEEP_MS)
