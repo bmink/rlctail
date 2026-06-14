@@ -31,8 +31,10 @@ bstr_t	*postid = NULL;
 int		do_shutdown = 0;
 pthread_mutex_t	do_shutdown_mutex;
 
-#define PRINTER_MIN_SLEEP_MS	20
-#define PRINTER_MAX_SLEEP_MS	1500
+#define PRINTER_MIN_SLEEP_MS		50
+#define PRINTER_MAX_SLEEP_MS		1500
+#define PRINTER_SLEEP_MULTIPLIER	2	/* Roughly in how many seconds
+						 * should the backlog clear */
 
 int instancecount = 1;
 int getter_sleep_sec = 1;
@@ -138,6 +140,7 @@ comment_getter(void *arg)
 
 		if(start == (reddit_comment_t *)barr_begin(comments)) {
 			/* No new comments since last seen one */
+			blogf("0 new, last ID=\"%s\"\n", bget(last_comment_id));
 			goto cont_label;
 		}
 
@@ -146,6 +149,11 @@ comment_getter(void *arg)
 		bclear(last_comment_id);	
 		bstrcat(last_comment_id, bget(
 		    ((reddit_comment_t *) barr_elem(comments, 0))->rc_id));
+
+
+		blogf("%d new, last ID=\"%s\"\n",
+		    start - (reddit_comment_t *) barr_begin(comments),
+		    bget(last_comment_id));
 
 		/* Now add new comments to pending queue */
 		for(comment = start - 1;
@@ -161,7 +169,8 @@ comment_getter(void *arg)
 			
 			commcopy = malloc(sizeof(reddit_comment_t));
 			if(commcopy == NULL) {
-				blogf("Couldn't lmutex, exiting thread");
+				blogf("Couldn't allocate commcopy,"
+				    " exiting thread");
 				return NULL;
 			}
 			*commcopy = *comment;
@@ -241,6 +250,7 @@ comment_printer(void *arg)
 	int			ret;
 	int			pendcnt;
 	reddit_comment_t	*comment;
+	blelem_t		*cur;
 	bstr_t			*val;
 	struct winsize		wins;
 	int			sleepms;
@@ -301,10 +311,21 @@ comment_printer(void *arg)
 		if(takeit) {
 			comment = (reddit_comment_t *)
 			    blist_lpop(pending_comments);
+
+			if(delaysec == 0)
+				pendcnt = blist_cnt(pending_comments);
+			else {
+				pendcnt = 0;
+				cur = pending_comments->bl_first;
+ 				while(cur) {
+					if(now >
+		((reddit_comment_t *)cur->be_data)->rc_retrieved + delaysec)
+						++pendcnt;
+					cur = cur->be_next;
+				}
+                	}
 		} else
 			comment = NULL;
-
-		pendcnt = blist_cnt(pending_comments);
 
 		ret = pthread_mutex_unlock(&pending_comments_mutex);
 		if(ret != 0) {
@@ -350,7 +371,8 @@ cont_label:
 #endif
 
 		if(pendcnt) {
-			sleepms = getter_sleep_sec * 1000 / pendcnt;
+			sleepms = getter_sleep_sec * 1000 / pendcnt *
+			    PRINTER_SLEEP_MULTIPLIER;
 			if(sleepms < PRINTER_MIN_SLEEP_MS)
 				sleepms = PRINTER_MIN_SLEEP_MS;
 			else if(sleepms > PRINTER_MAX_SLEEP_MS)
