@@ -684,7 +684,7 @@ blogf("body: %s", bget(comment.rc_body));
 	if(addedcnt == 0)
 		blogf("Didn't find any comments");
 
-#if 0
+#if 1
 	blogf("addedcnt=%d", addedcnt);
 #endif
 

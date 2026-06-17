@@ -31,9 +31,11 @@ bstr_t	*postid = NULL;
 int		do_shutdown = 0;
 pthread_mutex_t	do_shutdown_mutex;
 
-#define PRINTER_MIN_SLEEP_MS		50
-#define PRINTER_MAX_SLEEP_MS		1500
-#define PRINTER_SLEEP_MULTIPLIER	2	/* Roughly in how many seconds
+#define PRINTER_MIN_SLEEP_MS		20
+#define PRINTER_MAX_SLEEP_MS		1000
+#define PRINTER_NONEW_MS		250	
+#define PRINTER_MAX_ACCEL_MS		20
+#define PRINTER_SLEEP_MULTIPLIER	4	/* Roughly in how many seconds
 						 * should the backlog clear */
 
 int instancecount = 1;
@@ -254,6 +256,7 @@ comment_printer(void *arg)
 	bstr_t			*val;
 	struct winsize		wins;
 	int			sleepms;
+	int			last_sleepms;
 	time_t			now;
 	int			takeit;
 
@@ -267,6 +270,8 @@ comment_printer(void *arg)
 
 	/* Hide cursor. */
 	printf("\e[?25l");
+
+	last_sleepms = 0;
 
 	while(1) {
 
@@ -377,9 +382,27 @@ cont_label:
 				sleepms = PRINTER_MIN_SLEEP_MS;
 			else if(sleepms > PRINTER_MAX_SLEEP_MS)
 				sleepms = PRINTER_MAX_SLEEP_MS;
+
+
+			/* Don't accelerate too fast */
+			if(last_sleepms == 0) {
+				if(sleepms < PRINTER_NONEW_MS)
+					sleepms = PRINTER_NONEW_MS;
+			} else {
+				if(sleepms <
+				    last_sleepms - PRINTER_MAX_ACCEL_MS)
+					sleepms =
+					    last_sleepms - PRINTER_MAX_ACCEL_MS;
+			}
+
+			last_sleepms = sleepms;
+
 		} else {
 			sleepms = PRINTER_MIN_SLEEP_MS;
+			last_sleepms = 0; /* Indicate that we are waiting
+					   * for new messages */
 		}
+
 #if 0
 		printf("\nSleep: %d ms\n", sleepms);
 #endif
