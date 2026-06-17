@@ -471,6 +471,11 @@ reddit_uninit(void)
 	buninit(&token);
 }
 
+/* The reason we fetch this many comments in a call is that when a thread
+ * is super busy (lots of new comments), then with a low limit it can happen
+ * that no comments are returned in the response, only "more" links. This
+ * is an idiosyncrasy of the Reddit API. */
+#define MAXLIMIT        500
 
 int
 reddit_get_new_comments(const char *subreddit, const char *postid,
@@ -513,20 +518,25 @@ reddit_get_new_comments(const char *subreddit, const char *postid,
 		goto end_label;
 	}
 
-	/* Why we call this with maxcnt + 1: reddit threads often have a
-	 * sticky comment at the top and this is always returned by the
-	 * API call. In case there's no sticky, it's still ok to request more
-	 * comments than we need since we will bail out during parsing when
-	 * we reach maxcnt. */
 	bprintf(url, "%s/r/%s/comments/%s?sort=new&depth=1&limit=%d",
-	    API_PREFIX, subreddit, postid, maxcnt + 1);
+	    API_PREFIX, subreddit, postid, MAXLIMIT);
 
 
 #if 0
 	blogf("url=%s", bget(url));
 #endif
 
+#if 0
+	blogf("Making request");
+#endif
+
+
 	ret = bcurl_get(bget(url), &resp);
+
+#if 0
+	blogf("ret=%d", ret);
+#endif
+
 
 	if(ret != 0) {
 		blogf("Couldn't make request");
@@ -587,9 +597,10 @@ reddit_get_new_comments(const char *subreddit, const char *postid,
 		    listingchild = listingchild->next) {
 			bclear(val);
 			ret = cjson_get_childstr(listingchild, "kind", val);
-			/* On Reddit, a t1 type is a comment */
-			if(ret != 0 || bstrcmp(val, "t1"))
+			/* "t1" means "comment" in Reddit API */
+			if(ret != 0 || bstrcmp(val, "t1")) {
 				continue;
+			}
 
 			listingchilddata = cJSON_GetObjectItemCaseSensitive(
 			    listingchild, "data");
@@ -670,9 +681,19 @@ blogf("body: %s", bget(comment.rc_body));
 			break;
 	}
 
+	if(addedcnt == 0)
+		blogf("Didn't find any comments");
 
 #if 0
-	btofile("out.json", resp);
+	blogf("addedcnt=%d", addedcnt);
+#endif
+
+
+#if 0
+	if(addedcnt == 0)
+		btofile("zero.json", resp);
+	else
+		btofile("nonzero.json", resp);
 #endif
 
 

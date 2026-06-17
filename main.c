@@ -90,7 +90,7 @@ comment_getter(void *arg)
 	 * or scrolling comments too fast */
 	maxpending = (getter_sleep_sec * (1000 / PRINTER_MIN_SLEEP_MS)) * 10;
 
-	maxcomments = getter_sleep_sec * (1000 / PRINTER_MIN_SLEEP_MS);
+	maxcomments = getter_sleep_sec * (1000 / PRINTER_MIN_SLEEP_MS) * 2;
 
 	while(1) {
 
