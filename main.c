@@ -376,8 +376,7 @@ cont_label:
 #endif
 
 		if(pendcnt) {
-			sleepms = getter_sleep_sec * 1000 / pendcnt *
-			    PRINTER_SLEEP_MULTIPLIER;
+			sleepms = PRINTER_SLEEP_MULTIPLIER * 1000 / pendcnt;
 			if(sleepms < PRINTER_MIN_SLEEP_MS)
 				sleepms = PRINTER_MIN_SLEEP_MS;
 			else if(sleepms > PRINTER_MAX_SLEEP_MS)
